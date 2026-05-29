@@ -726,9 +726,10 @@ canvas.addEventListener('click', (e) => {
   const [r, c] = pixelToCell(x, y);
   if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
 
+  if (mode === 'pvc' && currentPlayer !== humanPlayer) return; // not human's turn
   const moved = makeMove(r, c);
   if (moved && !gameOver && mode === 'pvc') {
-    // AI plays as whichever player the human is NOT
+    // After human moves, currentPlayer flipped to AI's turn
     if (currentPlayer !== humanPlayer) setTimeout(callAI, 80);
   }
 });
@@ -769,12 +770,16 @@ function newGame() {
   lastMoveEl.textContent = '—';
   drawBoard();
   updateSidePanel();
-  // If human plays white, AI (black) goes first
+}
+
+function startGame() {
+  newGame();
+  // If human plays white, AI (black) goes first immediately
   if (mode === 'pvc' && humanPlayer === 2) {
     setTimeout(callAI, 300);
   }
 }
-document.getElementById('new-game-btn').addEventListener('click', newGame);
+document.getElementById('new-game-btn').addEventListener('click', startGame);
 
 // ============================================================
 // MODE & DIFFICULTY BUTTONS
@@ -787,7 +792,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     document.getElementById('diff-section').style.display  = mode === 'pvc' ? 'block' : 'none';
     document.getElementById('color-section').style.display = mode === 'pvc' ? 'block' : 'none';
     document.getElementById('name-w').textContent = mode === 'pvc' ? 'Computer' : 'White';
-    newGame();
+    startGame();
   });
 });
 
@@ -797,7 +802,7 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.classList.add('active');
     difficulty = btn.dataset.diff;
     document.getElementById('diff-desc').textContent = diffDesc[difficulty];
-    newGame();
+    startGame();
   });
 });
 
@@ -809,9 +814,6 @@ document.querySelectorAll('[data-color]').forEach(btn => {
     document.querySelectorAll('[data-color]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     humanPlayer = btn.dataset.color === 'black' ? 1 : 2;
-    const desc = btn.dataset.color === 'black' ? 'Black moves first' : 'White moves second';
-    btn.closest('.panel').querySelector('#color-section .text-dim, #color-section div[style]').textContent = desc;
-    newGame();
   });
 });
 
