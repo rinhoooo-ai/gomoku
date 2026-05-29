@@ -118,10 +118,15 @@ def quick_score(board: Board, r: int, c: int, player: int) -> int:
     score     = 0
 
     for (dr, dc) in DIRECTIONS:
+        board.grid[r, c] = player
         cnt_player = _count_dir(board, r, c, dr, dc, player)
-        score += SCORES[cnt_player]
+        board.grid[r, c] = 0
 
+        board.grid[r, c] = opponent
         cnt_opponent = _count_dir(board, r, c, dr, dc, opponent)
+        board.grid[r, c] = 0
+
+        score += SCORES[cnt_player]
         score += DEFENSE_W[cnt_opponent] * SCORES[cnt_opponent]
 
     return score
