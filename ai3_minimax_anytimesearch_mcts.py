@@ -372,7 +372,7 @@ def eval_rollout(board: Board, player: int) -> float:
     OUTPUT: float ∈ (0, 1)
     """
     raw = evaluate(board, player)
-    return 0.5 + 0.5 * math.tanh(raw / WIN_SCORE)
+    return 0.5 + 0.5 * math.tanh(raw / 10000)  # scale by SCORES[4] for better signal separation
 
 
 # ===========================================================================
@@ -411,7 +411,11 @@ def mcts_phase(board: Board, player: int, time_budget: float) -> list:
         iterations += 1
 
     print(f"[Phase 1] MCTS iterations: {iterations}")
-    return sorted(root.children, key=lambda c: c.visits, reverse=True)[:TOP_K]
+    # Select by win rate (quality) not visit count — eval_rollout signal
+    # is non-random so high visits don't guarantee high quality.
+    return sorted(root.children,
+                  key=lambda c: c.wins / c.visits if c.visits > 0 else 0,
+                  reverse=True)[:TOP_K]
 
 
 # ===========================================================================
