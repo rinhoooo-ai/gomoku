@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOMOKU — Five in a Row</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #12121a;
+    --board-bg:  #1a1008;
+    --line:      #5a4020;
+    --line-glow: #c8841a;
+    --stone-b:   #0d0d0d;
+    --stone-w:   #f0ede8;
+    --gold:      #c8a050;
+    --gold-dim:  #7a5f30;
+    --text:      #e8dcc8;
+    --text-dim:  #6a5f50;
+    --danger:    #c84030;
+    --easy:      #30a050;
+    --med:       #c88030;
+    --hard:      #c83050;
+    --radius:    4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(200,160,80,0.4);
+    line-height: 1;
+  }
+  header p {
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 920px;
+  }
+
+  /* ── Side panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid #2a2020;
+    border-radius: var(--radius);
+    padding: 20px;
+    width: 220px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2a2020;
+  }
+
+  /* Mode selector */
+  .mode-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid #2a2020;
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .mode-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,160,80,0.06); }
+  .mode-btn .label { font-size: 0.75rem; display: block; margin-top: 2px; color: var(--text-dim); }
+  .mode-btn.active .label { color: var(--gold-dim); }
+
+  /* Difficulty */
+  .diff-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .diff-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #2a2020;
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 6px 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .diff-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .diff-btn.easy.active  { border-color: var(--easy);  color: var(--easy);  background: rgba(48,160,80,0.08); }
+  .diff-btn.med.active   { border-color: var(--med);   color: var(--med);   background: rgba(200,128,48,0.08); }
+  .diff-btn.hard.active  { border-color: var(--hard);  color: var(--hard);  background: rgba(200,48,80,0.08); }
+
+  /* Scoreboard */
+  .scores {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    border: 1px solid #1e1e28;
+  }
+  .score-row.black { border-color: #2a2a3a; }
+  .score-row.white { border-color: #3a3020; }
+  .score-stone {
+    width: 14px; height: 14px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .score-stone.b { background: radial-gradient(circle at 35% 35%, #444, #000); box-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  .score-stone.w { background: radial-gradient(circle at 35% 35%, #fff, #ccc); box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+  .score-name { font-style: italic; font-size: 0.95rem; flex: 1; padding: 0 8px; }
+  .score-val  { font-family: 'Cinzel', serif; font-size: 1.1rem; color: var(--gold); }
+
+  /* Status */
+  #status {
+    margin-top: 4px;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    min-height: 2.5rem;
+    line-height: 1.4;
+  }
+  #status.winner { color: var(--gold); }
+  #status.thinking { color: var(--med); }
+
+  /* New game button */
+  #new-game-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    border-radius: var(--radius);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 14px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  #new-game-btn:hover { background: rgba(200,160,80,0.1); border-color: var(--gold); }
+
+  /* ── Board wrapper ── */
+  .board-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  canvas#board {
+    display: block;
+    border: 1px solid #2a1a08;
+    border-radius: 2px;
+    cursor: crosshair;
+    box-shadow:
+      0 0 0 4px #0f0a04,
+      0 0 0 5px #2a1a08,
+      0 20px 60px rgba(0,0,0,0.8);
+  }
+
+  /* Loading overlay */
+  #loading-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #loading-overlay.show { display: flex; }
+  #loading-overlay p {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--gold-dim);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Thinking indicator on board */
+  #thinking-bar {
+    display: none;
+    width: 100%;
+    height: 2px;
+    background: var(--surface);
+    margin-top: 4px;
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  #thinking-bar.show { display: block; }
+  #thinking-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    animation: scan 1.2s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%   { transform: translateX(-200%); }
+    100% { transform: translateX(400%); }
+  }
+
+  /* ── Pyodide status ── */
+  #py-status {
+    position: fixed;
+    bottom: 16px; right: 16px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #py-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+  #py-dot.ready { background: var(--easy); box-shadow: 0 0 6px var(--easy); }
+  #py-dot.loading { background: var(--med); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>GOMOKU</h1>
+  <p>Five in a row — the ancient game of strategy</p>
+</header>
+
+<div class="layout">
+
+  <!-- Left panel -->
+  <div class="panel">
+    <div class="panel-title">Game Mode</div>
+
+    <button class="mode-btn active" data-mode="pvp">
+      Two Players
+      <span class="label">Local multiplayer</span>
+    </button>
+    <button class="mode-btn" data-mode="pvc">
+      vs Computer
+      <span class="label">Play against AI</span>
+    </button>
+
+    <div id="diff-section" style="display:none; margin-top:14px;">
+      <div class="panel-title">Difficulty</div>
+      <div class="diff-row">
+        <button class="diff-btn easy" data-diff="easy">Easy</button>
+        <button class="diff-btn med active" data-diff="med">Med</button>
+        <button class="diff-btn hard" data-diff="hard">Hard</button>
+      </div>
+      <div style="margin-top:8px; font-size:0.8rem; font-style:italic; color:var(--text-dim);" id="diff-desc">
+        Minimax + Alpha-Beta
+      </div>
+    </div>
+
+    <button id="new-game-btn">New Game</button>
+  </div>
+
+  <!-- Board -->
+  <div class="board-wrap">
+    <canvas id="board"></canvas>
+    <div id="thinking-bar"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="panel">
+    <div class="panel-title">Score</div>
+    <div class="scores">
+      <div class="score-row black">
+        <div class="score-stone b"></div>
+        <span class="score-name" id="name-b">Black</span>
+        <span class="score-val" id="score-b">0</span>
+      </div>
+      <div class="score-row white">
+        <div class="score-stone w"></div>
+        <span class="score-name" id="name-w">White</span>
+        <span class="score-val" id="score-w">0</span>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div class="panel-title">Status</div>
+      <div id="status">Black's turn</div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div class="panel-title">Last Move</div>
+      <div id="last-move" style="font-style:italic; font-size:0.9rem; color:var(--text-dim);">—</div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div class="panel-title">Move Count</div>
+      <div id="move-count" style="font-family:'Cinzel',serif; font-size:1.4rem; color:var(--gold);">0</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading overlay (Pyodide init) -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Loading AI Engine...</p>
+</div>
+
+<!-- Pyodide status indicator -->
+<div id="py-status">
+  <div id="py-dot" class="loading"></div>
+  <span id="py-label">Loading AI</span>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SIZE     = 15;
+const CELL     = 38;        // px per cell
+const MARGIN   = 30;        // px margin around grid
+const CANVAS_W = MARGIN * 2 + CELL * (SIZE - 1);
+
+const COLORS = {
+  boardBg:   '#1a1008',
+  line:      '#5a4020',
+  lineGlow:  'rgba(200,130,26,0.15)',
+  dot:       '#8a6030',
+  stoneB:    ['#444', '#000'],
+  stoneW:    ['#ffffff', '#cccccc'],
+  highlight: 'rgba(200,160,80,0.35)',
+  lastMove:  'rgba(200,80,60,0.7)',
+  winLine:   'rgba(200,160,80,0.8)',
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let board       = Array.from({length:SIZE}, () => Array(SIZE).fill(0));
+let currentPlayer = 1;   // 1=black, 2=white
+let gameOver    = false;
+let moveCount   = 0;
+let scores      = {1: 0, 2: 0};
+let lastMove    = null;
+let winCells    = [];
+let mode        = 'pvp';   // 'pvp' | 'pvc'
+let difficulty  = 'med';   // 'easy' | 'med' | 'hard'
+let aiThinking  = false;
+let pyodideReady = false;
+let pyodide     = null;
+
+const diffDesc = {
+  easy: 'MCTS — random rollouts',
+  med:  'Minimax + Alpha-Beta',
+  hard: 'Hybrid MCTS + Minimax',
+};
+const aiModule = {
+  easy: 'ai2_mcts',
+  med:  'ai1_minimax_anytimesearch',
+  hard: 'ai3_minimax_anytimesearch_mcts',
+};
+const aiFunc = {
+  easy: 'mcts_search',
+  med:  'get_best_move',
+  hard: 'hybrid_search',
+};
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('board');
+const ctx    = canvas.getContext('2d');
+canvas.width = canvas.height = CANVAS_W;
+
+function cellToPixel(r, c) {
+  return [MARGIN + c * CELL, MARGIN + r * CELL];
+}
+function pixelToCell(x, y) {
+  const c = Math.round((x - MARGIN) / CELL);
+  const r = Math.round((y - MARGIN) / CELL);
+  return [r, c];
+}
+
+// ============================================================
+// DRAW
+// ============================================================
+function drawBoard() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_W);
+
+  // Background
+  ctx.fillStyle = COLORS.boardBg;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_W);
+
+  // Subtle vignette
+  const vg = ctx.createRadialGradient(CANVAS_W/2, CANVAS_W/2, CANVAS_W*0.2, CANVAS_W/2, CANVAS_W/2, CANVAS_W*0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_W);
+
+  // Grid lines
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < SIZE; i++) {
+    const [y0] = cellToPixel(i, 0);
+    const [y1] = cellToPixel(i, SIZE-1);
+    const [x0] = cellToPixel(0, i);
+    const [x1] = cellToPixel(SIZE-1, i);
+    ctx.beginPath(); ctx.moveTo(MARGIN, y0); ctx.lineTo(MARGIN + CELL*(SIZE-1), y0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, MARGIN); ctx.lineTo(x0, MARGIN + CELL*(SIZE-1)); ctx.stroke();
+  }
+
+  // Border (thicker)
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(MARGIN, MARGIN, CELL*(SIZE-1), CELL*(SIZE-1));
+
+  // Star dots (standard Gomoku positions)
+  const dots = [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]];
+  ctx.fillStyle = COLORS.dot;
+  dots.forEach(([r,c]) => {
+    const [px,py] = cellToPixel(r,c);
+    ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
+  });
+
+  // Highlight last move
+  if (lastMove) {
+    const [px,py] = cellToPixel(lastMove[0], lastMove[1]);
+    ctx.fillStyle = COLORS.lastMove;
+    ctx.beginPath(); ctx.arc(px, py, CELL*0.28, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Win line highlight
+  if (winCells.length) {
+    winCells.forEach(([r,c]) => {
+      const [px,py] = cellToPixel(r,c);
+      ctx.fillStyle = COLORS.winLine;
+      ctx.beginPath(); ctx.arc(px, py, CELL*0.35, 0, Math.PI*2); ctx.fill();
+    });
+  }
+
+  // Stones
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c]) drawStone(r, c, board[r][c]);
+    }
+  }
+}
+
+function drawStone(r, c, player) {
+  const [px, py] = cellToPixel(r, c);
+  const radius   = CELL * 0.44;
+  const isBlack  = player === 1;
+
+  // Shadow
+  ctx.shadowColor   = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur    = 8;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 3;
+
+  // Stone body
+  const grad = ctx.createRadialGradient(px - radius*0.3, py - radius*0.3, radius*0.05, px, py, radius);
+  if (isBlack) {
+    grad.addColorStop(0, '#555');
+    grad.addColorStop(1, '#050505');
+  } else {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, '#c8c0b0');
+  }
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI*2); ctx.fill();
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+  // Shine
+  if (!isBlack) {
+    const shine = ctx.createRadialGradient(px - radius*0.3, py - radius*0.35, 0, px, py, radius);
+    shine.addColorStop(0, 'rgba(255,255,255,0.6)');
+    shine.addColorStop(0.4, 'rgba(255,255,255,0.1)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI*2); ctx.fill();
+  } else {
+    const shine = ctx.createRadialGradient(px - radius*0.3, py - radius*0.35, 0, px - radius*0.1, py - radius*0.1, radius*0.6);
+    shine.addColorStop(0, 'rgba(255,255,255,0.15)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+// ============================================================
+// WIN CHECK (JS side — fast, no Python needed)
+// ============================================================
+function checkWin(r, c, player) {
+  const axes = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr,dc] of axes) {
+    let cells = [[r,c]];
+    for (const sign of [1,-1]) {
+      let nr=r+sign*dr, nc=c+sign*dc;
+      while (nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]===player) {
+        cells.push([nr,nc]); nr+=sign*dr; nc+=sign*dc;
+      }
+    }
+    if (cells.length >= 5) { winCells = cells; return true; }
+  }
+  return false;
+}
+
+// ============================================================
+// STATUS & UI HELPERS
+// ============================================================
+const statusEl    = document.getElementById('status');
+const lastMoveEl  = document.getElementById('last-move');
+const moveCountEl = document.getElementById('move-count');
+const thinkingBar = document.getElementById('thinking-bar');
+
+function setStatus(msg, cls='') {
+  statusEl.textContent = msg;
+  statusEl.className = cls;
+}
+
+function updateSidePanel() {
+  moveCountEl.textContent = moveCount;
+  document.getElementById('score-b').textContent = scores[1];
+  document.getElementById('score-w').textContent = scores[2];
+  if (lastMove) lastMoveEl.textContent = `Row ${lastMove[0]+1}, Col ${lastMove[1]+1}`;
+}
+
+function setThinking(on) {
+  aiThinking = on;
+  thinkingBar.className = on ? 'show' : '';
+  canvas.style.pointerEvents = on ? 'none' : 'auto';
+  if (on) setStatus('AI is thinking…', 'thinking');
+}
+
+// ============================================================
+// MAKE MOVE
+// ============================================================
+function makeMove(r, c) {
+  if (gameOver || board[r][c] !== 0) return false;
+  board[r][c] = currentPlayer;
+  lastMove     = [r, c];
+  moveCount++;
+
+  drawBoard();
+  updateSidePanel();
+
+  if (checkWin(r, c, currentPlayer)) {
+    scores[currentPlayer]++;
+    drawBoard();
+    const winner = currentPlayer === 1 ? 'Black wins!' : 'White wins!';
+    setStatus(`${winner} 🏆`, 'winner');
+    updateSidePanel();
+    gameOver = true;
+    return true;
+  }
+
+  if (moveCount === SIZE * SIZE) {
+    setStatus('Draw — the board is full.', '');
+    gameOver = true;
+    return true;
+  }
+
+  currentPlayer = 3 - currentPlayer;
+  const turnName = currentPlayer === 1 ? 'Black' : 'White';
+  setStatus(`${turnName}'s turn`);
+  return true;
+}
+
+// ============================================================
+// AI CALL (via Pyodide)
+// ============================================================
+async function callAI() {
+  if (!pyodideReady) {
+    setStatus('AI not ready yet — please wait…', 'thinking');
+    return;
+  }
+  setThinking(true);
+
+  try {
+    // Convert JS board to Python
+    const boardFlat = board.flat();
+    pyodide.globals.set('_board_flat', boardFlat);
+    pyodide.globals.set('_current_player', currentPlayer);
+    pyodide.globals.set('_difficulty', difficulty);
+
+    const move = await pyodide.runPythonAsync(`
+import json
+from game import Board
+import ai1_minimax_anytimesearch as ai1
+import ai2_mcts as ai2
+import ai3_minimax_anytimesearch_mcts as ai3
+
+b = Board(${SIZE})
+flat = list(_board_flat)
+for i in range(${SIZE}):
+    for j in range(${SIZE}):
+        b.grid[i, j] = flat[i * ${SIZE} + j]
+
+diff = str(_difficulty)
+player = int(_current_player)
+
+if diff == 'easy':
+    move = ai2.mcts_search(b, player, time_limit=5.0)
+elif diff == 'hard':
+    move = ai3.hybrid_search(b, player, time_limit=10.0)
+else:
+    move = ai1.get_best_move(b, player, time_limit=5.0)
+
+f"{move[0]},{move[1]}"
+`);
+
+    const [r, c] = move.split(',').map(Number);
+    setThinking(false);
+    makeMove(r, c);
+
+  } catch (err) {
+    console.error('AI error:', err);
+    setThinking(false);
+    setStatus('AI error — your turn.', '');
+  }
+}
+
+// ============================================================
+// CANVAS CLICK
+// ============================================================
+canvas.addEventListener('click', (e) => {
+  if (gameOver || aiThinking) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top)  * scaleY;
+  const [r, c] = pixelToCell(x, y);
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
+
+  const moved = makeMove(r, c);
+  if (moved && !gameOver && mode === 'pvc') {
+    // AI plays as player 2 (white)
+    if (currentPlayer === 2) setTimeout(callAI, 80);
+  }
+});
+
+// Hover preview
+canvas.addEventListener('mousemove', (e) => {
+  if (gameOver || aiThinking) return;
+  const rect  = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top)  * scaleY;
+  const [r, c] = pixelToCell(x, y);
+  drawBoard();
+  if (r >= 0 && r < SIZE && c >= 0 && c < SIZE && board[r][c] === 0) {
+    const [px, py] = cellToPixel(r, c);
+    ctx.globalAlpha = 0.35;
+    drawStone(r, c, currentPlayer);
+    ctx.globalAlpha = 1;
+  }
+});
+canvas.addEventListener('mouseleave', drawBoard);
+
+// ============================================================
+// NEW GAME
+// ============================================================
+function newGame() {
+  board         = Array.from({length:SIZE}, () => Array(SIZE).fill(0));
+  currentPlayer = 1;
+  gameOver      = false;
+  moveCount     = 0;
+  lastMove      = null;
+  winCells      = [];
+  aiThinking    = false;
+  thinkingBar.className = '';
+  canvas.style.pointerEvents = 'auto';
+  setStatus("Black's turn");
+  lastMoveEl.textContent = '—';
+  drawBoard();
+  updateSidePanel();
+}
+document.getElementById('new-game-btn').addEventListener('click', newGame);
+
+// ============================================================
+// MODE & DIFFICULTY BUTTONS
+// ============================================================
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    document.getElementById('diff-section').style.display = mode === 'pvc' ? 'block' : 'none';
+    document.getElementById('name-w').textContent = mode === 'pvc' ? 'Computer' : 'White';
+    newGame();
+  });
+});
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+    document.getElementById('diff-desc').textContent = diffDesc[difficulty];
+    newGame();
+  });
+});
+
+// ============================================================
+// PYODIDE INIT
+// ============================================================
+const pyDot   = document.getElementById('py-dot');
+const pyLabel = document.getElementById('py-label');
+
+async function initPyodide() {
+  document.getElementById('loading-overlay').classList.add('show');
+  try {
+    pyodide = await loadPyodide();
+    await pyodide.loadPackage('numpy');
+
+    // Load Python source files
+    const files = ['game.py', 'ai1_minimax_anytimesearch.py', 'ai2_mcts.py', 'ai3_minimax_anytimesearch_mcts.py'];
+    for (const f of files) {
+      const resp = await fetch(f);
+      const code = await resp.text();
+      pyodide.FS.writeFile(f, code);
+    }
+
+    pyodideReady = true;
+    pyDot.className  = 'ready';
+    pyLabel.textContent = 'AI Ready';
+  } catch (err) {
+    console.error('Pyodide init failed:', err);
+    pyDot.style.background = 'var(--danger)';
+    pyLabel.textContent = 'AI Unavailable';
+  }
+  document.getElementById('loading-overlay').classList.remove('show');
+}
+
+// Initial draw
+drawBoard();
+updateSidePanel();
+
+// Load Pyodide script then init
+const pyScript = document.createElement('script');
+pyScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js';
+pyScript.onload = initPyodide;
+pyScript.onerror = () => {
+  pyDot.style.background = 'var(--danger)';
+  pyLabel.textContent = 'AI Unavailable';
+  document.getElementById('loading-overlay').classList.remove('show');
+};
+document.head.appendChild(pyScript);
+</script>
+</body>
+</html>
