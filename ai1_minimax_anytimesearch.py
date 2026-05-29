@@ -243,6 +243,7 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
             board.make_move(r, c, player)
             score = _minimax(board, depth - 1, alpha, beta, False, player, (r, c), start, time_limit)
             board.undo_move(r, c)
+            print(f"  move {r},{c} → score {score}")
 
             if score is None:
                 return None
@@ -260,6 +261,7 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
             board.make_move(r, c, opponent)
             score = _minimax(board, depth - 1, alpha, beta, True, player, (r, c), start, time_limit)
             board.undo_move(r, c)
+            print(f"  move {r},{c} → score {score}")
 
             if score is None:
                 return None
