@@ -156,16 +156,27 @@ def get_candidate_moves(board: Board) -> list:
 MAX_CANDIDATES = 10
 
 
-def get_sorted_moves(board: Board, player: int) -> list:
+def get_sorted_moves(board: Board, player: int,
+                     last_move: Optional[Tuple[int, int]] = None) -> list:
     """
     Return candidate cells sorted by quick_score (descending).
     Candidates are restricted to CANDIDATE_RADIUS of occupied cells.
     Better moves first -> alpha-beta prunes more aggressively.
+
+    If last_move is provided (the opponent's most recent move), cells closer
+    to it receive a proximity bonus — forcing the search to examine direct
+    responses first before exploring unrelated parts of the board.
     """
     moves = get_candidate_moves(board)
-    moves = sorted(moves,
-                   key=lambda move: quick_score(board, move[0], move[1], player),
-                   reverse=True)
+
+    def sort_key(move):
+        qs = quick_score(board, move[0], move[1], player)
+        if last_move is not None:
+            dist = abs(move[0] - last_move[0]) + abs(move[1] - last_move[1])
+            qs  += max(0, (5 - dist)) * 500   # proximity bonus decays with distance
+        return qs
+
+    moves = sorted(moves, key=sort_key, reverse=True)
     return moves[:MAX_CANDIDATES]
 
 
@@ -295,16 +306,21 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
 # ===========================================================================
 
 def get_best_move(board: Board, player: int,
-                  time_limit: float = 15.0) -> Tuple[int, int]:
+                  time_limit: float = 15.0,
+                  last_move: Optional[Tuple[int, int]] = None) -> Tuple[int, int]:
     """
     Anytime search via Iterative Deepening + Alpha-Beta.
+
+    last_move — the opponent's most recent move (r, c), or None.
+    When provided, get_sorted_moves biases candidates toward cells near
+    last_move so the search examines direct responses first.
 
     Pre-checks (in priority order) before running minimax:
         1. Immediate win  — take it instantly.
         2. Immediate block (opponent 1-away) — block instantly.
         3. Own open-4    — push to 5, win next turn regardless.
-        4. Opponent open-3 — block one end; let minimax pick which end
-                             by restricting candidates to the two endpoints.
+        4. Opponent fork — block cell that would create 2+ threats.
+        5. Opponent open-3 — let minimax pick best block among endpoints.
 
     Then falls through to full iterative-deepening minimax.
 
@@ -373,7 +389,7 @@ def get_best_move(board: Board, player: int,
     best_depth = 0
 
     # Fallback: pick first legal move so we never return None
-    fallback = get_sorted_moves(board, player)
+    fallback = get_sorted_moves(board, player, last_move)
     if fallback:
         best_move = fallback[0]
 
@@ -388,7 +404,7 @@ def get_best_move(board: Board, player: int,
         candidate_move  = None
         candidate_score = -math.inf
 
-        root_moves = forced_candidates if forced_candidates else get_sorted_moves(board, player)
+        root_moves = forced_candidates if forced_candidates else get_sorted_moves(board, player, last_move)
         # Always include top offensive moves alongside forced blocks
         # so AI doesn't miss a counter-attack that's better than blocking.
         if forced_candidates:

@@ -656,6 +656,9 @@ async function callAI() {
     pyodide.globals.set('_board_flat', boardFlat);
     pyodide.globals.set('_current_player', currentPlayer);
     pyodide.globals.set('_difficulty', difficulty);
+    // Pass last human move so AI prioritises responses near it
+    pyodide.globals.set('_last_move_r', lastMove ? lastMove[0] : -1);
+    pyodide.globals.set('_last_move_c', lastMove ? lastMove[1] : -1);
 
     const move = await pyodide.runPythonAsync(`
 import json
@@ -672,13 +675,15 @@ for i in range(${SIZE}):
 
 diff = str(_difficulty)
 player = int(_current_player)
+lm_r, lm_c = int(_last_move_r), int(_last_move_c)
+last_move = (lm_r, lm_c) if lm_r >= 0 else None
 
 if diff == 'easy':
-    move = ai2.mcts_search(b, player, time_limit=5.0)
+    move = ai2.mcts_search(b, player, time_limit=15.0)
 elif diff == 'hard':
-    move = ai3.hybrid_search(b, player, time_limit=10.0)
+    move = ai3.hybrid_search(b, player, time_limit=15.0)
 else:
-    move = ai1.get_best_move(b, player, time_limit=5.0)
+    move = ai1.get_best_move(b, player, time_limit=15.0, last_move=last_move)
 
 f"{move[0]},{move[1]}"
 `);
