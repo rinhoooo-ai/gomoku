@@ -1,6 +1,6 @@
 # Gomoku AI — Three Search Paradigms
 
-**[Play Live →](https://alexkujou.github.io/gomoku)**
+**[Play Live →](https://rinhoooo-ai.github.io/gomoku)**
 
 A fully client-side Gomoku engine implementing three distinct AI search paradigms from scratch, running in-browser via Pyodide (no server required).
 
