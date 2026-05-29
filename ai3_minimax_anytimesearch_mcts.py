@@ -270,8 +270,9 @@ def _pre_checks(board: Board, player: int) -> Optional[Tuple[int, int]]:
                     break
         board.grid[r, c] = 0
 
-    my_open3 = _find_threat_move(board, player, 3, require_open=True)
-    if threat_cells and not my_open3:
+    # Always block opponent open-3 — minimax depth is insufficient to
+    # reliably find a counter-attack that wins before opponent reaches open-4.
+    if threat_cells:
         return max(threat_cells,
                    key=lambda m: quick_score(board, m[0], m[1], player))
 

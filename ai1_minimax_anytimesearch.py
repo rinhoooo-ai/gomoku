@@ -439,11 +439,11 @@ def get_best_move(board: Board, player: int,
     # let minimax decide: scaling our own threat to open-4 forces opponent
     # to defend, which is often stronger than reacting to their open-3.
     # Only force-block when we have no counter-threat of our own.
-    my_open3 = _find_threat_move(board, player, 3, require_open=True)
-    if threat_cells and not my_open3:
-        best_block = max(threat_cells,
-                         key=lambda m: quick_score(board, m[0], m[1], player))
-        return best_block
+    # Always block opponent open-3 — minimax depth is insufficient to
+    # reliably find a counter-attack that wins before opponent reaches open-4.
+    if threat_cells:
+        return max(threat_cells,
+                   key=lambda m: quick_score(board, m[0], m[1], player))
 
     # ------------------------------------------------------------------
     # MINIMAX — iterative deepening
