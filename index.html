@@ -494,14 +494,7 @@ function drawBoard() {
     ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
   });
 
-  // Highlight last move
-  if (lastMove) {
-    const [px,py] = cellToPixel(lastMove[0], lastMove[1]);
-    ctx.fillStyle = COLORS.lastMove;
-    ctx.beginPath(); ctx.arc(px, py, CELL*0.28, 0, Math.PI*2); ctx.fill();
-  }
-
-  // Win line highlight
+  // Win line highlight (drawn before stones so stones appear on top)
   if (winCells.length) {
     winCells.forEach(([r,c]) => {
       const [px,py] = cellToPixel(r,c);
@@ -515,6 +508,15 @@ function drawBoard() {
     for (let c = 0; c < SIZE; c++) {
       if (board[r][c]) drawStone(r, c, board[r][c]);
     }
+  }
+
+  // Last move indicator — square border drawn AFTER stones so it is visible
+  if (lastMove) {
+    const [px, py] = cellToPixel(lastMove[0], lastMove[1]);
+    const half = CELL * 0.38;
+    ctx.strokeStyle = 'rgba(200,80,60,0.95)';
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(px - half, py - half, half * 2, half * 2);
   }
 }
 

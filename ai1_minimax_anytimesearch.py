@@ -184,27 +184,68 @@ def get_sorted_moves(board: Board, player: int,
 # PART 2.5 — EXPLICIT THREAT CHECKS  (O(candidates), runs before minimax)
 # ===========================================================================
 
-def _find_threat_move(board: Board, player: int, min_count: int) -> Optional[Tuple[int, int]]:
+def _is_open_end(board: Board, r: int, c: int, dr: int, dc: int) -> bool:
+    """
+    Return True if cell (r, c) in direction (dr, dc) is an open end —
+    i.e. it is within bounds AND empty (not a wall, not an opponent stone).
+    Used to distinguish true open threats from edge-blocked or capped runs.
+    """
+    nr, nc = r + dr, c + dc
+    return (0 <= nr < board.size and
+            0 <= nc < board.size and
+            board.grid[nr, nc] == 0)
+
+
+def _find_threat_move(board: Board, player: int, min_count: int,
+                      require_open: bool = False) -> Optional[Tuple[int, int]]:
     """
     Scan all candidates: return the first empty cell where placing `player`
     creates a consecutive run of >= min_count in any direction.
 
+    If require_open=True, only count threats where at least one end of the
+    run is open (not blocked by board edge or opponent stone).  This prevents
+    treating edge-hugging 3-in-a-row as a genuine open-3 threat — a run
+    blocked by the board boundary on one side is significantly weaker and
+    should not trigger a forced pre-check response.
+
     Used to detect:
-        min_count=5 → immediate win
-        min_count=4 → one move away from win (open-4 or 4-in-a-row)
-        min_count=3 → open-3 threat
+        min_count=5 → immediate win          (require_open=False — win is win)
+        min_count=4 → open-4 / 4-in-a-row   (require_open=False — still urgent)
+        min_count=3 → open-3 threat          (require_open=True  — edge-3 is weak)
 
     INPUT:
-        board     : Board
-        player    : the player to check for
-        min_count : minimum consecutive count to qualify as a threat
+        board        : Board
+        player       : the player to check for
+        min_count    : minimum consecutive count to qualify as a threat
+        require_open : if True, skip runs where both ends are blocked/off-board
     OUTPUT:
         (r, c) of the threatening cell, or None if no threat found
     """
+    opponent = 3 - player
     for (r, c) in get_candidate_moves(board):
         board.grid[r, c] = player
         for (dr, dc) in DIRECTIONS:
-            if _count_dir(board, r, c, dr, dc, player) >= min_count:
+            cnt = _count_dir(board, r, c, dr, dc, player)
+            if cnt >= min_count:
+                if require_open:
+                    # Walk to the far end of the run in each direction,
+                    # then check if that end is open.
+                    open_ends = 0
+                    for sign in (1, -1):
+                        # Step past the run in this sign direction
+                        nr, nc = r + sign * dr, c + sign * dc
+                        while (0 <= nr < board.size and
+                               0 <= nc < board.size and
+                               board.grid[nr, nc] == player):
+                            nr += sign * dr
+                            nc += sign * dc
+                        # Now (nr, nc) is just beyond the run — check if open
+                        if (0 <= nr < board.size and
+                                0 <= nc < board.size and
+                                board.grid[nr, nc] == 0):
+                            open_ends += 1
+                    if open_ends == 0:
+                        continue   # both ends blocked — not a real open threat
                 board.grid[r, c] = 0
                 return (r, c)
         board.grid[r, c] = 0
@@ -378,8 +419,23 @@ def get_best_move(board: Board, player: int,
         board.grid[r, c] = opponent
         for (dr, dc) in DIRECTIONS:
             if _count_dir(board, r, c, dr, dc, opponent) >= 3:
-                threat_cells.append((r, c))
-                break
+                # Only treat as open-3 if at least one end is unblocked.
+                # Edge-blocked runs are weak threats — minimax handles them.
+                open_ends = 0
+                for sign in (1, -1):
+                    nr, nc = r + sign * dr, c + sign * dc
+                    while (0 <= nr < board.size and
+                           0 <= nc < board.size and
+                           board.grid[nr, nc] == opponent):
+                        nr += sign * dr
+                        nc += sign * dc
+                    if (0 <= nr < board.size and
+                            0 <= nc < board.size and
+                            board.grid[nr, nc] == 0):
+                        open_ends += 1
+                if open_ends > 0:
+                    threat_cells.append((r, c))
+                    break
         board.grid[r, c] = 0
 
     # ------------------------------------------------------------------
