@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 import math
 import time
 import random
+import copy
 
 # ---------------------------------------------------------------------------
 # MCTS CONSTANTS
@@ -379,7 +380,6 @@ def mcts_search(board: Board, player: int,
 # TESTS
 # ===========================================================================
 if __name__ == "__main__":
-    import copy
     board = Board(15)
 
     # ------------------------------------------------------------------
