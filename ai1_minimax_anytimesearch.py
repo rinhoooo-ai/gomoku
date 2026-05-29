@@ -409,18 +409,15 @@ def get_best_move(board: Board, player: int,
             return (r, c)
 
     # ------------------------------------------------------------------
-    # PRE-CHECK 5 — Opponent open-3: must block one of the two endpoints.
-    # Collect all opponent open-3 threat cells, then let minimax (depth=2)
-    # pick the best blocking move among them — so the choice is planned,
-    # not arbitrary.
+    # PRE-CHECK 5 — Opponent open-3.
+    # Collect all cells where opponent placing creates an open-3.
+    # Edge-blocked runs (both ends closed) are excluded — weak threat.
     # ------------------------------------------------------------------
     threat_cells = []
     for (r, c) in get_candidate_moves(board):
         board.grid[r, c] = opponent
         for (dr, dc) in DIRECTIONS:
             if _count_dir(board, r, c, dr, dc, opponent) >= 3:
-                # Only treat as open-3 if at least one end is unblocked.
-                # Edge-blocked runs are weak threats — minimax handles them.
                 open_ends = 0
                 for sign in (1, -1):
                     nr, nc = r + sign * dr, c + sign * dc
@@ -438,6 +435,16 @@ def get_best_move(board: Board, player: int,
                     break
         board.grid[r, c] = 0
 
+    # If opponent has open-3 BUT we also have open-3, do NOT force block —
+    # let minimax decide: scaling our own threat to open-4 forces opponent
+    # to defend, which is often stronger than reacting to their open-3.
+    # Only force-block when we have no counter-threat of our own.
+    my_open3 = _find_threat_move(board, player, 3, require_open=True)
+    if threat_cells and not my_open3:
+        best_block = max(threat_cells,
+                         key=lambda m: quick_score(board, m[0], m[1], player))
+        return best_block
+
     # ------------------------------------------------------------------
     # MINIMAX — iterative deepening
     # ------------------------------------------------------------------
@@ -449,9 +456,14 @@ def get_best_move(board: Board, player: int,
     if fallback:
         best_move = fallback[0]
 
-    # If opponent has open-3 threats, restrict root candidates to those cells
-    # so minimax focuses on picking the best block rather than ignoring it.
-    forced_candidates = threat_cells if threat_cells else None
+    # Build root candidates: always include our own open-3 scaling moves
+    # at the top so minimax evaluates them first, then fill with sorted moves.
+    root_seed = []
+    if my_open3:
+        root_seed.append(my_open3)
+    root_seed += [m for m in get_sorted_moves(board, player, last_move)
+                  if m not in root_seed]
+    root_seed = root_seed[:MAX_CANDIDATES]
 
     for depth in range(1, MAX_DEPTH + 1):
         if time.time() - start >= time_limit:
@@ -460,18 +472,7 @@ def get_best_move(board: Board, player: int,
         candidate_move  = None
         candidate_score = -math.inf
 
-        root_moves = forced_candidates if forced_candidates else get_sorted_moves(board, player, last_move)
-        # Always include top offensive moves alongside forced blocks
-        # so AI doesn't miss a counter-attack that's better than blocking.
-        if forced_candidates:
-            offensive = get_sorted_moves(board, player)
-            seen = set(forced_candidates)
-            for m in offensive:
-                if m not in seen:
-                    root_moves = list(forced_candidates) + [m]
-                    seen.add(m)
-                    if len(root_moves) >= MAX_CANDIDATES:
-                        break
+        root_moves = root_seed
 
         timed_out = False
 
