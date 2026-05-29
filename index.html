@@ -833,7 +833,7 @@ async function initPyodide() {
     // Load Python source files
     const files = ['game.py', 'ai1_minimax_anytimesearch.py', 'ai2_mcts.py', 'ai3_minimax_anytimesearch_mcts.py'];
     for (const f of files) {
-      const resp = await fetch(f);
+      const resp = await fetch(f + '?v=' + Date.now());
       const code = await resp.text();
       pyodide.FS.writeFile(f, code);
     }
