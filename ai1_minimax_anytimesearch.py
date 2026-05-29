@@ -307,6 +307,45 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
 # PART 4 — ANYTIME SEARCH
 # ===========================================================================
 
+# PRE-CHECK 5: Block open-3 — return the BETTER end
+def _find_open3_block(board, player):
+    opponent = 3 - player
+    occupied = list(zip(*board.grid.nonzero()))
+    
+    for (pr, pc) in occupied:
+        for (dr, dc) in DIRECTIONS:
+            for offset in range(-4, 1):
+                sr, sc = pr + offset*dr, pc + offset*dc
+                er, ec = sr + 4*dr, sc + 4*dc
+                if not (0 <= sr < board.size and 0 <= sc < board.size and
+                        0 <= er < board.size and 0 <= ec < board.size):
+                    continue
+                
+                o_cnt = p_cnt = 0
+                for i in range(5):
+                    cell = board.grid[sr+i*dr, sc+i*dc]
+                    if cell == opponent: o_cnt += 1
+                    elif cell == player: p_cnt += 1
+                
+                if o_cnt == 3 and p_cnt == 0:
+                    # Find both ends
+                    before_r, before_c = sr - dr, sc - dc
+                    after_r,  after_c  = sr + 5*dr, sc + 5*dc
+                    
+                    open_before = (0 <= before_r < board.size and 
+                                   0 <= before_c < board.size and
+                                   board.grid[before_r, before_c] == 0)
+                    open_after  = (0 <= after_r < board.size and 
+                                   0 <= after_c < board.size and
+                                   board.grid[after_r, after_c] == 0)
+                    
+                    if open_before and open_after:
+                        # Both ends open → pick better end for us
+                        s1 = quick_score(board, before_r, before_c, player)
+                        s2 = quick_score(board, after_r, after_c, player)
+                        return (before_r, before_c) if s1 >= s2 else (after_r, after_c)
+    return None
+
 def get_best_move(board: Board, player: int,
                   time_limit: float = 15.0,
                   last_move: Optional[Tuple[int, int]] = None) -> Tuple[int, int]:
@@ -335,33 +374,10 @@ def get_best_move(board: Board, player: int,
     if move:
         return move
 
-    # PRE-CHECK 5: Block opponent open-3 (both ends free)
-    for (r, c) in board.get_empty_cells():
-        board.grid[r, c] = opponent
-        for (dr, dc) in DIRECTIONS:
-            for offset in range(-4, 1):
-                sr, sc = r + offset * dr, c + offset * dc
-                er, ec = sr + 4 * dr, sc + 4 * dc
-                if not (0 <= sr < board.size and 0 <= sc < board.size and
-                        0 <= er < board.size and 0 <= ec < board.size):
-                    continue
-                p_cnt = o_cnt = 0
-                for i in range(5):
-                    cell = board.grid[sr + i*dr, sc + i*dc]
-                    if cell == opponent: o_cnt += 1
-                    elif cell == player: p_cnt += 1
-                if o_cnt == 3 and p_cnt == 0:
-                    # Check both ends open
-                    before_r, before_c = sr - dr, sc - dc
-                    after_r,  after_c  = sr + 5*dr, sc + 5*dc
-                    open_before = (0 <= before_r < board.size and 0 <= before_c < board.size
-                                and board.grid[before_r, before_c] == 0)
-                    open_after  = (0 <= after_r < board.size and 0 <= after_c < board.size
-                                and board.grid[after_r, after_c] == 0)
-                    if open_before and open_after:
-                        board.grid[r, c] = 0
-                        return (r, c)  # block this open-3!
-        board.grid[r, c] = 0
+    # PRE-CHECK 5: Block opponent open-3
+    move = _find_open3_block(board, player)
+    if move:
+        return move
 
     best_move  = None
     best_depth = 0
