@@ -442,7 +442,9 @@ def get_best_move(board: Board, player: int,
         board.grid[r, c] = 0
 
     # PRE-CHECK 5: Block opponent open-3 (prioritizes both-open over one-open)
+    print(f"Player {player} thinking...")
     move = _find_open3_block(board, player)
+    print(f"  open3 block found: {move}")
     if move:
         return move
 
