@@ -796,15 +796,16 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
   });
 });
 
-document.querySelectorAll('.diff-btn').forEach(btn => {
+document.querySelectorAll('[data-diff]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-diff]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     difficulty = btn.dataset.diff;
     document.getElementById('diff-desc').textContent = diffDesc[difficulty];
-    startGame();
   });
 });
+
+
 
 // ============================================================
 // COLOR (human plays black or white)
