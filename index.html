@@ -328,6 +328,17 @@
       </div>
     </div>
 
+    <div id="color-section" style="display:none; margin-top:14px;">
+      <div class="panel-title">You Play As</div>
+      <div class="diff-row">
+        <button class="diff-btn easy active" id="color-black" data-color="black">Black</button>
+        <button class="diff-btn med" id="color-white" data-color="white">White</button>
+      </div>
+      <div style="margin-top:8px; font-size:0.8rem; font-style:italic; color:var(--text-dim);">
+        Black moves first
+      </div>
+    </div>
+
     <button id="new-game-btn">New Game</button>
   </div>
 
@@ -417,6 +428,7 @@ let winCells    = [];
 let mode        = 'pvp';   // 'pvp' | 'pvc'
 let difficulty  = 'med';   // 'easy' | 'med' | 'hard'
 let aiThinking  = false;
+let humanPlayer = 1;   // 1=black(first), 2=white(second)
 let pyodideReady = false;
 let pyodide     = null;
 
@@ -676,7 +688,7 @@ for i in range(${SIZE}):
         b.grid[i, j] = flat[i * ${SIZE} + j]
 
 diff = str(_difficulty)
-player = int(_current_player)
+player = int(_current_player)   # AI plays as current_player (not humanPlayer)
 lm_r, lm_c = int(_last_move_r), int(_last_move_c)
 last_move = (lm_r, lm_c) if lm_r >= 0 else None
 
@@ -716,8 +728,8 @@ canvas.addEventListener('click', (e) => {
 
   const moved = makeMove(r, c);
   if (moved && !gameOver && mode === 'pvc') {
-    // AI plays as player 2 (white)
-    if (currentPlayer === 2) setTimeout(callAI, 80);
+    // AI plays as whichever player the human is NOT
+    if (currentPlayer !== humanPlayer) setTimeout(callAI, 80);
   }
 });
 
@@ -757,6 +769,10 @@ function newGame() {
   lastMoveEl.textContent = '—';
   drawBoard();
   updateSidePanel();
+  // If human plays white, AI (black) goes first
+  if (mode === 'pvc' && humanPlayer === 2) {
+    setTimeout(callAI, 300);
+  }
 }
 document.getElementById('new-game-btn').addEventListener('click', newGame);
 
@@ -768,7 +784,8 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     mode = btn.dataset.mode;
-    document.getElementById('diff-section').style.display = mode === 'pvc' ? 'block' : 'none';
+    document.getElementById('diff-section').style.display  = mode === 'pvc' ? 'block' : 'none';
+    document.getElementById('color-section').style.display = mode === 'pvc' ? 'block' : 'none';
     document.getElementById('name-w').textContent = mode === 'pvc' ? 'Computer' : 'White';
     newGame();
   });
@@ -780,6 +797,20 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.classList.add('active');
     difficulty = btn.dataset.diff;
     document.getElementById('diff-desc').textContent = diffDesc[difficulty];
+    newGame();
+  });
+});
+
+// ============================================================
+// COLOR (human plays black or white)
+// ============================================================
+document.querySelectorAll('[data-color]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-color]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    humanPlayer = btn.dataset.color === 'black' ? 1 : 2;
+    const desc = btn.dataset.color === 'black' ? 'Black moves first' : 'White moves second';
+    btn.closest('.panel').querySelector('#color-section .text-dim, #color-section div[style]').textContent = desc;
     newGame();
   });
 });
