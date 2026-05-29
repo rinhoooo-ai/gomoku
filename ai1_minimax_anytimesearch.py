@@ -174,57 +174,38 @@ def get_sorted_moves(board: Board, player: int) -> list:
 # ===========================================================================
 
 def _find_threat_move(board: Board, player: int, min_count: int) -> Optional[Tuple[int, int]]:
-    """
-    Return first candidate cell where placing `player` creates >= min_count
-    pieces in any 5-cell window.
-
-    For min_count=5: uses check_win directly (handles gap patterns correctly).
-    For min_count<5: scans all 5-cell windows through (r,c) and counts player
-                     pieces — gap patterns like X X _ X count as 4 in window.
-
-    INPUT:
-        board     : Board
-        player    : 1 or 2
-        min_count : 5 = win, 4 = one-away, 3 = open-3
-    OUTPUT:
-        (r, c) or None
-    """
     opponent = 3 - player
+    empty_cells = board.get_empty_cells()  # scan ALL empty cells
 
-    for (r, c) in get_candidate_moves(board):
+    for (r, c) in empty_cells:
         board.grid[r, c] = player
 
-        if min_count == 5:
-            if board.check_win(r, c, player):
-                board.grid[r, c] = 0
-                return (r, c)
-        else:
-            found = False
-            for (dr, dc) in DIRECTIONS:
-                for offset in range(-4, 1):
-                    cells = []
-                    valid = True
-                    for i in range(5):
-                        nr = r + (offset + i) * dr
-                        nc = c + (offset + i) * dc
-                        if not (0 <= nr < board.size and 0 <= nc < board.size):
-                            valid = False
-                            break
-                        cells.append((nr, nc))
-                    if not valid:
-                        continue
-                    p_cnt = sum(1 for nr, nc in cells if board.grid[nr, nc] == player)
-                    o_cnt = sum(1 for nr, nc in cells if board.grid[nr, nc] == opponent)
-                    if p_cnt >= min_count and o_cnt == 0:
-                        found = True
+        found = False
+        for (dr, dc) in DIRECTIONS:
+            for offset in range(-4, 1):
+                cells = []
+                valid = True
+                for i in range(5):
+                    nr = r + (offset + i) * dr
+                    nc = c + (offset + i) * dc
+                    if not (0 <= nr < board.size and 0 <= nc < board.size):
+                        valid = False
                         break
-                if found:
+                    cells.append((nr, nc))
+                if not valid:
+                    continue
+                p_cnt = sum(1 for nr, nc in cells if board.grid[nr, nc] == player)
+                o_cnt = sum(1 for nr, nc in cells if board.grid[nr, nc] == opponent)
+                if p_cnt >= min_count and o_cnt == 0:
+                    found = True
                     break
             if found:
-                board.grid[r, c] = 0
-                return (r, c)
+                break
 
         board.grid[r, c] = 0
+        if found:
+            return (r, c)
+
     return None
 
 
