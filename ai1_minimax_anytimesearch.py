@@ -299,7 +299,7 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
         return None
 
     if last_move is not None:
-        last_player = player if is_maximizing else opponent
+        last_player = opponent if is_maximizing else player
         if board.check_win(last_move[0], last_move[1], last_player):
             return WIN_SCORE if last_player == player else LOSE_SCORE
 
