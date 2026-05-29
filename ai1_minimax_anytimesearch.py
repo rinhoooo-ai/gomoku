@@ -330,7 +330,8 @@ def _minimax(board: Board, depth: int, alpha: float, beta: float,
 # ===========================================================================
 
 def get_best_move(board: Board, player: int,
-                  time_limit: float = 15.0) -> Tuple[int, int]:
+                  time_limit: float = 15.0,
+                  last_move: Optional[Tuple[int, int]] = None) -> Tuple[int, int]:
     """
     Anytime search via Iterative Deepening + Alpha-Beta.
 
