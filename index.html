@@ -428,6 +428,7 @@ let winCells    = [];
 let mode        = 'pvp';   // 'pvp' | 'pvc'
 let difficulty  = 'med';   // 'easy' | 'med' | 'hard'
 let aiThinking  = false;
+let moveHistory = [];   // [(player, r, c), ...]
 let humanPlayer = 1;   // 1=black(first), 2=white(second)
 let pyodideReady = false;
 let pyodide     = null;
@@ -819,6 +820,27 @@ document.querySelectorAll('[data-color]').forEach(btn => {
 });
 
 // ============================================================
+// DEBUG HELPERS
+// ============================================================
+window.printGameState = function() {
+  console.log("=== BOARD STATE ===");
+  let boardStr = "   ";
+  for (let c = 0; c < SIZE; c++) boardStr += c.toString().padStart(2);
+  console.log(boardStr);
+  for (let r = 0; r < SIZE; r++) {
+    let row = r.toString().padStart(2) + " ";
+    for (let c = 0; c < SIZE; c++) {
+      row += board[r][c] === 0 ? " ." : board[r][c] === 1 ? " X" : " O";
+    }
+    console.log(row);
+  }
+  console.log("=== MOVE HISTORY ===");
+  moveHistory.forEach(([p, r, c], i) => {
+    console.log(`  ${i+1}. Player ${p} (${p===1?"Black":"White"}) → (${r},${c})`);
+  });
+};
+
+// ============================================================
 // PYODIDE INIT
 // ============================================================
 const pyDot   = document.getElementById('py-dot');
@@ -833,7 +855,7 @@ async function initPyodide() {
     // Load Python source files
     const files = ['game.py', 'ai1_minimax_anytimesearch.py', 'ai2_mcts.py', 'ai3_minimax_anytimesearch_mcts.py'];
     for (const f of files) {
-      const resp = await fetch(f + '?v=' + Date.now());
+      const resp = await fetch(f);
       const code = await resp.text();
       pyodide.FS.writeFile(f, code);
     }
