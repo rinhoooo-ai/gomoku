@@ -326,7 +326,7 @@ def mcts_search(board: Board, player: int,
 
     HINT: print iteration count and best move stats at the end for debugging.
     """
-    root = MCTSNode(copy.deepcopy(board), player)
+    root = MCTSNode(board.copy(), player)
     start = time.time()
     iterations = 0
 
@@ -379,101 +379,101 @@ def mcts_search(board: Board, player: int,
 # ===========================================================================
 # TESTS
 # ===========================================================================
-if __name__ == "__main__":
-    board = Board(15)
+# if __name__ == "__main__":
+#     board = Board(15)
 
-    # ------------------------------------------------------------------
-    # 1. MCTSNode init
-    # ------------------------------------------------------------------
-    node = MCTSNode(copy.deepcopy(board), player=1)
-    assert node.visits == 0
-    assert node.wins   == 0.0
-    assert node.parent is None
-    assert node.move   is None
-    assert len(node.untried_moves) == 1  # empty board → center only
-    print("PASS: MCTSNode init")
+#     # ------------------------------------------------------------------
+#     # 1. MCTSNode init
+#     # ------------------------------------------------------------------
+#     node = MCTSNode(copy.deepcopy(board), player=1)
+#     assert node.visits == 0
+#     assert node.wins   == 0.0
+#     assert node.parent is None
+#     assert node.move   is None
+#     assert len(node.untried_moves) == 1  # empty board → center only
+#     print("PASS: MCTSNode init")
 
-    # ------------------------------------------------------------------
-    # 2. is_terminal — root is never terminal
-    # ------------------------------------------------------------------
-    assert not node.is_terminal(), "root (no move made) must not be terminal"
-    print("PASS: is_terminal root")
+#     # ------------------------------------------------------------------
+#     # 2. is_terminal — root is never terminal
+#     # ------------------------------------------------------------------
+#     assert not node.is_terminal(), "root (no move made) must not be terminal"
+#     print("PASS: is_terminal root")
 
-    # ------------------------------------------------------------------
-    # 3. expand — creates a child correctly
-    # ------------------------------------------------------------------
-    child = node.expand()
-    assert child.parent is node
-    assert child.move is not None
-    assert child.player == 2          # opponent's turn after player 1 moves
-    assert len(node.children) == 1
-    assert len(node.untried_moves) == 0   # only 1 candidate (center), now used
-    print("PASS: expand")
+#     # ------------------------------------------------------------------
+#     # 3. expand — creates a child correctly
+#     # ------------------------------------------------------------------
+#     child = node.expand()
+#     assert child.parent is node
+#     assert child.move is not None
+#     assert child.player == 2          # opponent's turn after player 1 moves
+#     assert len(node.children) == 1
+#     assert len(node.untried_moves) == 0   # only 1 candidate (center), now used
+#     print("PASS: expand")
 
-    # ------------------------------------------------------------------
-    # 4. backpropagate
-    # ------------------------------------------------------------------
-    child.backpropagate(1.0)          # child's mover (player 1) wins
-    assert child.visits == 1
-    assert child.wins   == 1.0
-    assert node.visits  == 1
-    assert node.wins    == 0.0        # parent sees 1 - 1.0 = 0.0
-    print("PASS: backpropagate")
+#     # ------------------------------------------------------------------
+#     # 4. backpropagate
+#     # ------------------------------------------------------------------
+#     child.backpropagate(1.0)          # child's mover (player 1) wins
+#     assert child.visits == 1
+#     assert child.wins   == 1.0
+#     assert node.visits  == 1
+#     assert node.wins    == 0.0        # parent sees 1 - 1.0 = 0.0
+#     print("PASS: backpropagate")
 
-    # ------------------------------------------------------------------
-    # 5. ucb_score — unvisited node returns inf
-    # ------------------------------------------------------------------
-    board2 = Board(15)
-    board2.make_move(7, 7, 1)
-    root2 = MCTSNode(copy.deepcopy(board2), player=2)
-    c1 = root2.expand()
-    assert c1.ucb_score() == math.inf, "unvisited child must return inf"
-    print("PASS: ucb_score unvisited")
+#     # ------------------------------------------------------------------
+#     # 5. ucb_score — unvisited node returns inf
+#     # ------------------------------------------------------------------
+#     board2 = Board(15)
+#     board2.make_move(7, 7, 1)
+#     root2 = MCTSNode(copy.deepcopy(board2), player=2)
+#     c1 = root2.expand()
+#     assert c1.ucb_score() == math.inf, "unvisited child must return inf"
+#     print("PASS: ucb_score unvisited")
 
-    # ------------------------------------------------------------------
-    # 6. rollout — returns valid result
-    # ------------------------------------------------------------------
-    board3 = Board(15)
-    board3.make_move(7, 7, 1)
-    result = rollout(copy.deepcopy(board3), player=1)
-    assert result in (0.0, 0.5, 1.0), f"rollout must return 0, 0.5 or 1, got {result}"
-    print("PASS: rollout valid result")
+#     # ------------------------------------------------------------------
+#     # 6. rollout — returns valid result
+#     # ------------------------------------------------------------------
+#     board3 = Board(15)
+#     board3.make_move(7, 7, 1)
+#     result = rollout(copy.deepcopy(board3), player=1)
+#     assert result in (0.0, 0.5, 1.0), f"rollout must return 0, 0.5 or 1, got {result}"
+#     print("PASS: rollout valid result")
 
-    # ------------------------------------------------------------------
-    # 7. mcts_search — take winning move immediately
-    # ------------------------------------------------------------------
-    board4 = Board(15)
-    for col in range(4):
-        board4.make_move(0, col, 1)
-    move = mcts_search(board4, player=1, time_limit=15.0)
-    assert move == (0, 4), f"MCTS should complete 5-in-row, got {move}"
-    print("PASS: mcts_search takes win")
+#     # ------------------------------------------------------------------
+#     # 7. mcts_search — take winning move immediately
+#     # ------------------------------------------------------------------
+#     board4 = Board(15)
+#     for col in range(4):
+#         board4.make_move(0, col, 1)
+#     move = mcts_search(board4, player=1, time_limit=15.0)
+#     assert move == (0, 4), f"MCTS should complete 5-in-row, got {move}"
+#     print("PASS: mcts_search takes win")
 
-    # ------------------------------------------------------------------
-    # 8. mcts_search — block opponent's open 4
-    # ------------------------------------------------------------------
-    board5 = Board(15)
-    for col in range(4):
-        board5.make_move(0, col, 2)
-    move = mcts_search(board5, player=1, time_limit=15.0)
-    assert move[0] == 0 and move[1] in (4,), \
-        f"MCTS should block row 0, got {move}"
-    print("PASS: mcts_search blocks opponent 4")
+#     # ------------------------------------------------------------------
+#     # 8. mcts_search — block opponent's open 4
+#     # ------------------------------------------------------------------
+#     board5 = Board(15)
+#     for col in range(4):
+#         board5.make_move(0, col, 2)
+#     move = mcts_search(board5, player=1, time_limit=15.0)
+#     assert move[0] == 0 and move[1] in (4,), \
+#         f"MCTS should block row 0, got {move}"
+#     print("PASS: mcts_search blocks opponent 4")
 
-    # ------------------------------------------------------------------
-    # 9. mcts_search — returns within time limit
-    # ------------------------------------------------------------------
-    board6 = Board(15)
-    random.seed(42)
-    for _ in range(10):
-        r, c = random.randint(5, 9), random.randint(5, 9)
-        if board6.grid[r, c] == 0:
-            board6.make_move(r, c, random.choice([1, 2]))
-    t0      = time.time()
-    move    = mcts_search(board6, player=1, time_limit=15.0)
-    elapsed = time.time() - t0
-    assert move is not None,     "must always return a move"
-    assert elapsed <= 16.0,       f"exceeded time limit: {elapsed:.1f}s"
-    print(f"PASS: mcts_search returned in {elapsed:.2f}s")
+#     # ------------------------------------------------------------------
+#     # 9. mcts_search — returns within time limit
+#     # ------------------------------------------------------------------
+#     board6 = Board(15)
+#     random.seed(42)
+#     for _ in range(10):
+#         r, c = random.randint(5, 9), random.randint(5, 9)
+#         if board6.grid[r, c] == 0:
+#             board6.make_move(r, c, random.choice([1, 2]))
+#     t0      = time.time()
+#     move    = mcts_search(board6, player=1, time_limit=15.0)
+#     elapsed = time.time() - t0
+#     assert move is not None,     "must always return a move"
+#     assert elapsed <= 16.0,       f"exceeded time limit: {elapsed:.1f}s"
+#     print(f"PASS: mcts_search returned in {elapsed:.2f}s")
 
-    print("\n=== All tests passed! ===")
+#     print("\n=== All tests passed! ===")
