@@ -153,7 +153,7 @@ def get_candidate_moves(board: Board) -> list:
     return list(candidates)
 
 
-MAX_CANDIDATES = 15
+MAX_CANDIDATES = 10
 
 
 def get_sorted_moves(board: Board, player: int) -> list:
@@ -337,7 +337,22 @@ def get_best_move(board: Board, player: int,
         return move
 
     # ------------------------------------------------------------------
-    # PRE-CHECK 4 — Opponent open-3: must block one of the two endpoints.
+    # PRE-CHECK 4 — Opponent fork: one opponent move creates 2+ threats.
+    # If opponent can play a single cell that simultaneously builds 2
+    # directions to count >= 4, block that cell before the fork lands.
+    # ------------------------------------------------------------------
+    for (r, c) in get_candidate_moves(board):
+        board.grid[r, c] = opponent
+        threat_count = sum(
+            1 for (dr, dc) in DIRECTIONS
+            if _count_dir(board, r, c, dr, dc, opponent) >= 4
+        )
+        board.grid[r, c] = 0
+        if threat_count >= 2:
+            return (r, c)
+
+    # ------------------------------------------------------------------
+    # PRE-CHECK 5 — Opponent open-3: must block one of the two endpoints.
     # Collect all opponent open-3 threat cells, then let minimax (depth=2)
     # pick the best blocking move among them — so the choice is planned,
     # not arbitrary.
