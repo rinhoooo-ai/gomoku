@@ -64,6 +64,64 @@ def evaluate(board: Board, player: int) -> int:
                 if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
                 score += score_window(p_cnt, o_cnt, oe)
                 score -= score_window(o_cnt, p_cnt, oe)
+
+    # Half-3 threat penalty
+    opp_half3_dirs = 0
+    seen_eval = set()
+    for (dr, dc) in DIRECTIONS:
+        for r in range(board.size):
+            for c in range(board.size):
+                er, ec = r + 4*dr, c + 4*dc
+                if not (0 <= er < board.size and 0 <= ec < board.size):
+                    continue
+                key = (r, c, dr, dc)
+                if key in seen_eval: continue
+                seen_eval.add(key)
+                p_cnt = o_cnt = 0
+                for i in range(5):
+                    cell = board.grid[r+i*dr, c+i*dc]
+                    if cell == opponent:  o_cnt += 1
+                    elif cell == player:  p_cnt += 1
+                if o_cnt == 3 and p_cnt == 0:
+                    br, bc = r-dr, c-dc
+                    ar, ac = r+5*dr, c+5*dc
+                    oe = 0
+                    if 0<=br<board.size and 0<=bc<board.size and board.grid[br,bc]==0: oe+=1
+                    if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
+                    if oe == 1:  # half-3
+                        opp_half3_dirs += 1
+
+    if opp_half3_dirs >= 3:
+        score -= 25_000
+    elif opp_half3_dirs >= 2:
+        score -= 8_000
+
+
+    opp_half3_count = 0
+    seen_h = set()
+    for (dr, dc) in DIRECTIONS:
+        for r in range(board.size):
+            for c in range(board.size):
+                er, ec = r+4*dr, c+4*dc
+                if not (0<=er<board.size and 0<=ec<board.size): continue
+                key = (r,c,dr,dc)
+                if key in seen_h: continue
+                seen_h.add(key)
+                o_cnt=p_cnt=0
+                for i in range(5):
+                    cell=board.grid[r+i*dr,c+i*dc]
+                    if cell==opponent: o_cnt+=1
+                    elif cell==player: p_cnt+=1
+                if o_cnt==3 and p_cnt==0:
+                    br,bc=r-dr,c-dc
+                    ar,ac=r+5*dr,c+5*dc
+                    oe=0
+                    if 0<=br<board.size and 0<=bc<board.size and board.grid[br,bc]==0: oe+=1
+                    if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
+                    if oe==1: opp_half3_count+=1
+
+    score -= opp_half3_count * 15_000
+
     return score
 
 
@@ -103,15 +161,41 @@ def quick_score(board: Board, r: int, c: int, player: int) -> int:
         score += DEFENSE_W[cnt_opp] * SCORES[cnt_opp]
     
     board.make_move(r, c, opponent)
-    fours, open3s, half3s, open2s = _count_threats_after_move(board, r, c, opponent)
+    fours_opp, open3s_opp, half3s_opp, open2s_opp = _count_threats_after_move(board, r, c, opponent)
     board.undo_move(r, c)
-    
-    if (fours >= 2) or (fours >= 1 and open3s >= 1) or (open3s >= 2):
-        score += 50_000   # critical fork, ưu tiên gần như tuyệt đối
-    elif open3s >= 1 and open2s >= 2:
-        score += 15_000   # soft fork, nguy hiểm hơn normal move nhiều
-    elif open3s >= 1 and open2s >= 1:
+
+    board.make_move(r, c, player)
+    _, _, half3s_after, _ = _count_threats_after_move(board, r, c, opponent)
+    board.undo_move(r, c)
+    half3s_blocked = max(0, half3s_opp - half3s_after)
+
+    if (fours_opp >= 2) or (fours_opp >= 1 and open3s_opp >= 1) or (open3s_opp >= 2):
+        score += 50_000
+    elif open3s_opp >= 1 and open2s_opp >= 2:
+        score += 15_000
+    elif open3s_opp >= 1 and open2s_opp >= 1:
         score += 5_000
+    elif half3s_opp >= 3:
+        score += 40_000
+    elif half3s_opp >= 2:
+        score += 15_000
+
+    # Bonus block half-3
+    if half3s_blocked >= 2:
+        score += 30_000
+    elif half3s_blocked >= 1:
+        score += 10_000
+
+    if (fours_opp >= 2) or (fours_opp >= 1 and open3s_opp >= 1) or (open3s_opp >= 2):
+        score += 50_000
+    elif open3s_opp >= 1 and open2s_opp >= 2:
+        score += 15_000
+    elif open3s_opp >= 1 and open2s_opp >= 1:
+        score += 5_000
+    elif half3s_opp >= 3:
+        score += 40_000   # block điểm tạo 3 half-3 = cực kỳ nguy hiểm
+    elif half3s_opp >= 2:
+        score += 15_000
 
     return score
 
@@ -347,6 +431,44 @@ def _find_open3_block(board: Board, player: int) -> Optional[Tuple[int,int]]:
         return max(both_open_moves, key=lambda x: x[0])[1]
     return None
 
+def _get_half3_block_candidates(board: Board, last_move: Tuple[int,int], opponent: int) -> list:
+    """Tìm các đầu mút của half-3 sequences xuất phát từ last_move của opponent."""
+    player = 3 - opponent
+    r0, c0 = last_move
+    cands = set()
+
+    for (dr, dc) in DIRECTIONS:
+        for offset in range(-4, 1):
+            sr, sc = r0+offset*dr, c0+offset*dc
+            er, ec = sr+4*dr, sc+4*dc
+            if not (0<=sr<board.size and 0<=sc<board.size and
+                    0<=er<board.size and 0<=ec<board.size): continue
+
+            p_cnt = o_cnt = 0
+            for i in range(5):
+                cell = board.grid[sr+i*dr, sc+i*dc]
+                if cell == opponent: p_cnt += 1
+                elif cell == player: o_cnt += 1
+
+            if p_cnt != 3 or o_cnt != 0: continue
+
+            seq = [(sr+i*dr, sc+i*dc) for i in range(5)
+                   if board.grid[sr+i*dr, sc+i*dc] == opponent]
+            gaps = [(sr+i*dr, sc+i*dc) for i in range(5)
+                    if board.grid[sr+i*dr, sc+i*dc] == 0]
+
+            r1, c1 = seq[0]; r2, c2 = seq[-1]
+            pr0, pc0 = int(r1-dr), int(c1-dc)
+            pr1, pc1 = int(r2+dr), int(c2+dc)
+
+            if 0<=pr0<board.size and 0<=pc0<board.size and board.grid[pr0,pc0]==0:
+                cands.add((pr0, pc0))
+            if 0<=pr1<board.size and 0<=pc1<board.size and board.grid[pr1,pc1]==0:
+                cands.add((pr1, pc1))
+            if len(gaps) == 1:
+                cands.add((int(gaps[0][0]), int(gaps[0][1])))
+
+    return list(cands)
 
 # ===========================================================================
 # PART 2.6 — FORK DETECTION  (NEW)
@@ -525,6 +647,26 @@ def get_best_move(board: Board, player: int,
     if move:
         print(f"[Fork] blocking opponent fork at {move}")
         return move
+
+    # PRE-CHECK 5.5: half3s >= 3 từ last_move → minimax trong block candidates
+    if last_move is not None:
+        _, _, half3s_lm, _ = _count_threats_after_move(board, last_move[0], last_move[1], opponent)
+        if half3s_lm >= 3:
+            half3_cands = _get_half3_block_candidates(board, last_move, opponent)
+            if half3_cands:
+                best_move_h3  = None
+                best_score_h3 = -math.inf
+                for (r, c) in half3_cands:
+                    if time.time() - start >= time_limit: break
+                    board.make_move(r, c, player)
+                    score = _minimax(board, 3, -math.inf, math.inf,
+                                    False, player, (r,c), start, time_limit)
+                    board.undo_move(r, c)
+                    if score is not None and score > best_score_h3:
+                        best_score_h3 = score
+                        best_move_h3  = (r, c)
+                if best_move_h3:
+                    return best_move_h3
 
     # PRE-CHECK 6: Block opponent open-3 — minimax trong candidates
     open3_cands = _get_open3_block_candidates(board, player)
