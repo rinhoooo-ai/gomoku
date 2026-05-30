@@ -182,6 +182,9 @@ def _find_threat_move(board: Board, player: int, min_count: int) -> Optional[Tup
                     if cell == player:    p_cnt += 1
                     elif cell == opponent: o_cnt += 1
                 if o_cnt == 0 and p_cnt == min_count - 1:
+                    positions = [i for i in range(5) if board.grid[sr+i*dr, sc+i*dc] == player]
+                    if positions[-1] - positions[0] != min_count - 2:
+                        continue  # scattered, skip
                     for i in range(5):
                         nr, nc = sr+i*dr, sc+i*dc
                         if board.grid[nr,nc] == 0:
@@ -426,23 +429,23 @@ def get_best_move(board: Board, player: int,
     move = _find_threat_move(board, player, 4)
     if move: return move
 
-    # PRE-CHECK 5 (NEW): Own fork — tạo double threat ngay
-    move = _find_fork_move(board, player)
-    if move:
-        print(f"[Fork] own fork at {move}")
-        return move
-
-    # PRE-CHECK 6 (NEW): Block opponent fork
+    # PRE-CHECK 5: Block opponent fork
     move = _find_fork_move(board, opponent)
     if move:
         print(f"[Fork] blocking opponent fork at {move}")
         return move
 
-    # PRE-CHECK 7: Block opponent open-3
+    # PRE-CHECK 6: Block opponent open-3
     print(f"Player {player} thinking...")
     move = _find_open3_block(board, player)
     print(f"  open3 block found: {move}")
     if move: return move
+
+    # PRE-CHECK 7: Own fork
+    move = _find_fork_move(board, player)
+    if move:
+        print(f"[Fork] own fork at {move}")
+        return move
 
     # MINIMAX
     best_move  = None
