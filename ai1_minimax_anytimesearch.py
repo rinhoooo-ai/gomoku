@@ -101,6 +101,18 @@ def quick_score(board: Board, r: int, c: int, player: int) -> int:
         cnt_opp = _count_dir(board, r, c, dr, dc, opponent)
         board.grid[r,c] = 0
         score += DEFENSE_W[cnt_opp] * SCORES[cnt_opp]
+    
+    board.make_move(r, c, opponent)
+    fours, open3s, half3s, open2s = _count_threats_after_move(board, r, c, opponent)
+    board.undo_move(r, c)
+    
+    if (fours >= 2) or (fours >= 1 and open3s >= 1) or (open3s >= 2):
+        score += 50_000   # critical fork, ưu tiên gần như tuyệt đối
+    elif open3s >= 1 and open2s >= 2:
+        score += 15_000   # soft fork, nguy hiểm hơn normal move nhiều
+    elif open3s >= 1 and open2s >= 1:
+        score += 5_000
+
     return score
 
 
@@ -210,13 +222,24 @@ def _find_open3_block(board: Board, player: int) -> Optional[Tuple[int,int]]:
                 oe = int(ob) + int(oa)
                 if oe == 0:
                     continue
+
+                seq = [(sr+i*dr, sc+i*dc) for i in range(5) if board.grid[sr+i*dr, sc+i*dc] == opponent]
+                gaps = [(sr+i*dr, sc+i*dc) for i in range(5) if board.grid[sr+i*dr, sc+i*dc] == 0]
+
+                r0, c0 = seq[0]
+                r1, c1 = seq[-1]
+
                 candidates = []
-                if ob: candidates.append((int(br), int(bc)))
-                if oa: candidates.append((int(ar), int(ac)))
-                for i in range(5):
-                    nr, nc = sr+i*dr, sc+i*dc
-                    if board.grid[nr,nc] == 0:
-                        candidates.append((int(nr), int(nc)))
+                pr0, pc0 = int(r0-dr), int(c0-dc)
+                pr1, pc1 = int(r1+dr), int(c1+dc)
+                if 0<=pr0<board.size and 0<=pc0<board.size and board.grid[pr0,pc0]==0:
+                    candidates.append((pr0, pc0))
+                if 0<=pr1<board.size and 0<=pc1<board.size and board.grid[pr1,pc1]==0:
+                    candidates.append((pr1, pc1))
+
+                if len(gaps) == 1:
+                    candidates.extend(gaps)
+
                 if not candidates:
                     continue
                 best = max(candidates, key=lambda m: quick_score(board, m[0], m[1], player))
@@ -235,14 +258,17 @@ def _find_open3_block(board: Board, player: int) -> Optional[Tuple[int,int]]:
 # PART 2.6 — FORK DETECTION  (NEW)
 # ===========================================================================
 
-def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tuple[int, int]:
+def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tuple[int, int, int, int]:
+    """Returns (four_threats, open3_threats, half_open3_threats, open2_threats)"""
     opponent = 3 - player
     four_threats = 0
     open3_threats = 0
+    half_open3_threats = 0
+    open2_threats = 0
 
-    for (dr, dc) in DIRECTIONS:  # 4 hướng, mỗi hướng đếm tối đa 1 threat
-        best_in_dir = 0  # 0=nothing, 1=open3, 2=four
-        
+    for (dr, dc) in DIRECTIONS:
+        best_in_dir = 0  # 0=nothing, 1=half_open3, 2=open2, 3=open3, 4=four
+
         for offset in range(-4, 1):
             sr, sc = r + offset*dr, c + offset*dc
             er, ec = sr + 4*dr, sc + 4*dc
@@ -260,8 +286,8 @@ def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tupl
                 continue
 
             if p_cnt == 4:
-                best_in_dir = 2
-                break  # không cần xét tiếp hướng này
+                best_in_dir = 4
+                break
 
             elif p_cnt == 3:
                 br, bc = sr-dr, sc-dc
@@ -269,47 +295,55 @@ def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tupl
                 oe = 0
                 if 0<=br<board.size and 0<=bc<board.size and board.grid[br,bc]==0: oe+=1
                 if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
-                if oe >= 1:
-                    best_in_dir = max(best_in_dir, 1)
+                if oe == 2:
+                    best_in_dir = max(best_in_dir, 3)   # open3
+                elif oe == 1:
+                    best_in_dir = max(best_in_dir, 1)   # half_open3
 
-        if best_in_dir == 2:
-            four_threats += 1
-        elif best_in_dir == 1:
-            open3_threats += 1
+            elif p_cnt == 2:
+                br, bc = sr-dr, sc-dc
+                ar, ac = sr+5*dr, sc+5*dc
+                oe = 0
+                if 0<=br<board.size and 0<=bc<board.size and board.grid[br,bc]==0: oe+=1
+                if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
+                if oe == 2:
+                    best_in_dir = max(best_in_dir, 2)   # open2
+                elif oe == 1:
+                    pass  # half_open2 — bỏ qua, không đủ nguy hiểm
 
-    return four_threats, open3_threats
+        if best_in_dir == 4:   four_threats += 1
+        elif best_in_dir == 3: open3_threats += 1
+        elif best_in_dir == 2: open2_threats += 1
+        elif best_in_dir == 1: half_open3_threats += 1
+
+    return four_threats, open3_threats, half_open3_threats, open2_threats
 
 
 def _is_fork_move(board: Board, r: int, c: int, player: int) -> bool:
-    """
-    Trả về True nếu đặt quân tại (r,c) tạo ra fork:
-      - >=2 four-threats, hoặc
-      - >=1 four-threat + >=1 open-3-threat, hoặc
-      - >=2 open-3-threats (double open-3, opponent không block kịp cả 2)
-    """
     board.make_move(r, c, player)
-    fours, open3s = _count_threats_after_move(board, r, c, player)
+    fours, open3s, half3s, open2s = _count_threats_after_move(board, r, c, player)
     board.undo_move(r, c)
+    return (fours >= 2) or (fours >= 1 and open3s >= 1) or (open3s >= 2) or (open3s >= 1 and open2s >= 2)
 
+
+def _is_critical_fork(board: Board, r: int, c: int, player: int) -> bool:
+    board.make_move(r, c, player)
+    fours, open3s, half3s, open2s = _count_threats_after_move(board, r, c, player)
+    board.undo_move(r, c)
     return (fours >= 2) or (fours >= 1 and open3s >= 1) or (open3s >= 2)
 
 
 def _find_fork_move(board: Board, player: int) -> Optional[Tuple[int,int]]:
-    """
-    Tìm nước fork tốt nhất cho player trong candidate moves.
-    Trả về nước có fork score cao nhất (ưu tiên fours > open3s).
-    """
     best_move  = None
     best_score = -1
 
     for (r, c) in get_candidate_moves(board):
         board.make_move(r, c, player)
-        fours, open3s = _count_threats_after_move(board, r, c, player)
+        fours, open3s, half3s, open2s = _count_threats_after_move(board, r, c, player)
         board.undo_move(r, c)
 
-        # Fork condition
         if (fours >= 2) or (fours >= 1 and open3s >= 1) or (open3s >= 2):
-            fork_score = fours * 10 + open3s  # ưu tiên four-threats
+            fork_score = fours * 100 + open3s * 10
             if fork_score > best_score:
                 best_score = fork_score
                 best_move  = (r, c)
@@ -391,14 +425,6 @@ def get_best_move(board: Board, player: int,
     # PRE-CHECK 3: Own open-4
     move = _find_threat_move(board, player, 4)
     if move: return move
-
-    # PRE-CHECK 4: Block opponent open-4
-    for (r, c) in get_candidate_moves(board):
-        board.grid[r, c] = opponent
-        if board.check_win(r, c, opponent):
-            board.grid[r, c] = 0
-            return (int(r), int(c))
-        board.grid[r, c] = 0
 
     # PRE-CHECK 5 (NEW): Own fork — tạo double threat ngay
     move = _find_fork_move(board, player)
