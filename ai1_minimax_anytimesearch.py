@@ -236,8 +236,10 @@ def _get_open3_block_candidates(board: Board, player: int) -> list:
 
                 ob = (0<=pr0<board.size and 0<=pc0<board.size and board.grid[pr0,pc0]==0)
                 oa = (0<=pr1<board.size and 0<=pc1<board.size and board.grid[pr1,pc1]==0)
-                if int(ob)+int(oa) < 2 and len(gaps) == 0:
-                    continue  # half-open consecutive → skip
+
+                # Skip nếu không phải open-3 thật (cả 2 đầu mút phải trống)
+                if int(ob) + int(oa) < 2:
+                    continue
 
                 if ob: final.add((pr0, pc0))
                 if oa: final.add((pr1, pc1))
@@ -693,5 +695,15 @@ if __name__ == "__main__":
     assert move in ((7,6),(7,10))
     board.grid[:] = 0
     print("PASS: blocks open-3")
+
+    # 11. _get_open3_block_candidates: không detect half-open sau khi block 1 đầu
+    board.grid[:] = 0
+    board.make_move(8,9,2); board.make_move(9,10,2); board.make_move(10,11,2)
+    board.make_move(11,9,2)
+    board.make_move(7,8,1)  # block đầu mút (7,8)
+    cands = _get_open3_block_candidates(board, 1)
+    assert cands == [], f"Expected [], got {cands}"
+    board.grid[:] = 0
+    print("PASS: _get_open3_block_candidates ignores half-open after block")
 
     print("\n=== All tests passed! ===")
