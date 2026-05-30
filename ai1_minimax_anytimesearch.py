@@ -154,6 +154,97 @@ def get_sorted_moves(board: Board, player: int,
     moves = sorted(moves, key=sort_key, reverse=True)
     return moves[:max_cand]
 
+def _get_open3_block_candidates(board: Board, player: int) -> list:
+    opponent = 3 - player
+    occupied = list(zip(*board.grid.nonzero()))
+    if not occupied:
+        return []
+    seen = set()
+    candidates = set()
+
+    for (pr, pc) in occupied:
+        for (dr, dc) in DIRECTIONS:
+            for offset in range(-4, 1):
+                sr, sc = pr+offset*dr, pc+offset*dc
+                er, ec = sr+4*dr,      sc+4*dc
+                if not (0<=sr<board.size and 0<=sc<board.size and
+                        0<=er<board.size and 0<=ec<board.size):
+                    continue
+                key = (sr, sc, dr, dc)
+                if key in seen: continue
+                seen.add(key)
+
+                o_cnt = p_cnt = 0
+                for i in range(5):
+                    cell = board.grid[sr+i*dr, sc+i*dc]
+                    if cell == opponent:  o_cnt += 1
+                    elif cell == player:  p_cnt += 1
+                if o_cnt != 3 or p_cnt != 0:
+                    continue
+
+                seq = [(sr+i*dr, sc+i*dc) for i in range(5)
+                       if board.grid[sr+i*dr, sc+i*dc] == opponent]
+                gaps = [(sr+i*dr, sc+i*dc) for i in range(5)
+                        if board.grid[sr+i*dr, sc+i*dc] == 0]
+
+                r0, c0 = seq[0]
+                r1, c1 = seq[-1]
+
+                # Chỉ lấy 2 đầu mút tiếp giáp sequence
+                pr0, pc0 = int(r0-dr), int(c0-dc)
+                pr1, pc1 = int(r1+dr), int(c1+dc)
+                if 0<=pr0<board.size and 0<=pc0<board.size and board.grid[pr0,pc0]==0:
+                    candidates.add((pr0, pc0))
+                if 0<=pr1<board.size and 0<=pc1<board.size and board.grid[pr1,pc1]==0:
+                    candidates.add((pr1, pc1))
+
+                # Nếu scattered (có gap) thì thêm gap vào
+                if len(gaps) == 1:
+                    candidates.add((int(gaps[0][0]), int(gaps[0][1])))
+
+    # Chỉ giữ open-3 thật (both ends open) — bỏ half-open
+    # Filter: candidate phải block được ít nhất 1 open-3 both-open
+    final = set()
+    seen2 = set()
+    for (pr, pc) in occupied:
+        for (dr, dc) in DIRECTIONS:
+            for offset in range(-4, 1):
+                sr, sc = pr+offset*dr, pc+offset*dc
+                er, ec = sr+4*dr,      sc+4*dc
+                if not (0<=sr<board.size and 0<=sc<board.size and
+                        0<=er<board.size and 0<=ec<board.size):
+                    continue
+                key = (sr, sc, dr, dc)
+                if key in seen2: continue
+                seen2.add(key)
+
+                o_cnt = p_cnt = 0
+                for i in range(5):
+                    cell = board.grid[sr+i*dr, sc+i*dc]
+                    if cell == opponent:  o_cnt += 1
+                    elif cell == player:  p_cnt += 1
+                if o_cnt != 3 or p_cnt != 0:
+                    continue
+
+                seq = [(sr+i*dr, sc+i*dc) for i in range(5)
+                       if board.grid[sr+i*dr, sc+i*dc] == opponent]
+                gaps = [(sr+i*dr, sc+i*dc) for i in range(5)
+                        if board.grid[sr+i*dr, sc+i*dc] == 0]
+                r0, c0 = seq[0]; r1, c1 = seq[-1]
+                pr0, pc0 = int(r0-dr), int(c0-dc)
+                pr1, pc1 = int(r1+dr), int(c1+dc)
+
+                ob = (0<=pr0<board.size and 0<=pc0<board.size and board.grid[pr0,pc0]==0)
+                oa = (0<=pr1<board.size and 0<=pc1<board.size and board.grid[pr1,pc1]==0)
+                if int(ob)+int(oa) < 2 and len(gaps) == 0:
+                    continue  # half-open consecutive → skip
+
+                if ob: final.add((pr0, pc0))
+                if oa: final.add((pr1, pc1))
+                if len(gaps) == 1:
+                    final.add((int(gaps[0][0]), int(gaps[0][1])))
+
+    return list(final)
 
 # ===========================================================================
 # PART 2.5 — THREAT DETECTION
@@ -433,11 +524,22 @@ def get_best_move(board: Board, player: int,
         print(f"[Fork] blocking opponent fork at {move}")
         return move
 
-    # PRE-CHECK 6: Block opponent open-3
-    print(f"Player {player} thinking...")
-    move = _find_open3_block(board, player)
-    print(f"  open3 block found: {move}")
-    if move: return move
+    # PRE-CHECK 6: Block opponent open-3 — minimax trong candidates
+    open3_cands = _get_open3_block_candidates(board, player)
+    if open3_cands:
+        best_move_o3  = None
+        best_score_o3 = -math.inf
+        for (r, c) in open3_cands:
+            if time.time() - start >= time_limit: break
+            board.make_move(r, c, player)
+            score = _minimax(board, 3, -math.inf, math.inf,
+                            False, player, (r,c), start, time_limit)
+            board.undo_move(r, c)
+            if score is not None and score > best_score_o3:
+                best_score_o3 = score
+                best_move_o3  = (r, c)
+        if best_move_o3:
+            return best_move_o3
 
     # PRE-CHECK 7: Own fork
     move = _find_fork_move(board, player)
