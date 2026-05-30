@@ -252,8 +252,6 @@ def _find_open3_block(board: Board, player: int) -> Optional[Tuple[int,int]]:
 
     if both_open_moves:
         return max(both_open_moves, key=lambda x: x[0])[1]
-    if one_open_moves:
-        return max(one_open_moves,  key=lambda x: x[0])[1]
     return None
 
 
