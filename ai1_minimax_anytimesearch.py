@@ -81,7 +81,7 @@ def _count_dir(board, r, c, dr, dc, player):
 
 
 def quick_score(board: Board, r: int, c: int, player: int) -> int:
-    DEFENSE_W = {5:2.0, 4:1.5, 3:1.2, 2:0.70, 1:0.50}
+    DEFENSE_W = {5: 10.0, 4: 5.0, 3: 2.5, 2: 0.70, 1: 0.50}
     opponent  = 3 - player
     score     = 0
     for (dr, dc) in DIRECTIONS:
@@ -236,42 +236,32 @@ def _find_open3_block(board: Board, player: int) -> Optional[Tuple[int,int]]:
 # ===========================================================================
 
 def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tuple[int, int]:
-    """
-    Đặt quân player tại (r,c), đếm số threats tạo ra:
-      four_threats  : số windows có p_cnt==4, o_cnt==0 (1 nước nữa là win)
-      open3_threats : số windows có p_cnt==3, o_cnt==0, open_ends>=1
-
-    Trả về (four_threats, open3_threats).
-    Gọi sau khi board.make_move(r, c, player), trước undo.
-    """
-    opponent     = 3 - player
+    opponent = 3 - player
     four_threats = 0
     open3_threats = 0
-    counted_windows = set()
 
-    for (dr, dc) in DIRECTIONS:
+    for (dr, dc) in DIRECTIONS:  # 4 hướng, mỗi hướng đếm tối đa 1 threat
+        best_in_dir = 0  # 0=nothing, 1=open3, 2=four
+        
         for offset in range(-4, 1):
             sr, sc = r + offset*dr, c + offset*dc
-            er, ec = sr + 4*dr,     sc + 4*dc
+            er, ec = sr + 4*dr, sc + 4*dc
             if not (0<=sr<board.size and 0<=sc<board.size and
                     0<=er<board.size and 0<=ec<board.size):
                 continue
-            key = (sr, sc, dr, dc)
-            if key in counted_windows:
-                continue
-            counted_windows.add(key)
 
             p_cnt = o_cnt = 0
             for i in range(5):
                 cell = board.grid[sr+i*dr, sc+i*dc]
-                if cell == player:    p_cnt += 1
+                if cell == player:     p_cnt += 1
                 elif cell == opponent: o_cnt += 1
 
             if o_cnt > 0:
                 continue
 
             if p_cnt == 4:
-                four_threats += 1
+                best_in_dir = 2
+                break  # không cần xét tiếp hướng này
 
             elif p_cnt == 3:
                 br, bc = sr-dr, sc-dc
@@ -280,7 +270,12 @@ def _count_threats_after_move(board: Board, r: int, c: int, player: int) -> Tupl
                 if 0<=br<board.size and 0<=bc<board.size and board.grid[br,bc]==0: oe+=1
                 if 0<=ar<board.size and 0<=ac<board.size and board.grid[ar,ac]==0: oe+=1
                 if oe >= 1:
-                    open3_threats += 1
+                    best_in_dir = max(best_in_dir, 1)
+
+        if best_in_dir == 2:
+            four_threats += 1
+        elif best_in_dir == 1:
+            open3_threats += 1
 
     return four_threats, open3_threats
 
