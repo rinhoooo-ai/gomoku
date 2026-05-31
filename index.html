@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gomoku AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen">
+        <h1>Gomoku</h1>
+        <p>Choose your side</p>
+        <div id="side-buttons">
+            <button onclick="startGame(1)">Play as Black</button>
+            <button onclick="startGame(2)">Play as White</button>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="hidden">
+        <header>
+            <h1>Gomoku</h1>
+            <div id="status-text">Your turn</div>
+            <button onclick="newGame()">New Game</button>
+        </header>
+
+        <main>
+            <canvas id="board-canvas" width="600" height="600"></canvas>
+
+            <div id="right-panel">
+                <h3>Move History</h3>
+                <div id="history-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="gomoku.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
