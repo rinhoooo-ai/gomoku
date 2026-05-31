@@ -616,7 +616,7 @@ def get_best_move(board: Board, player: int,
             depth_remaining=depth,
             last_move=last_move,
             must_defend=defend,
-            priority_candidates=priority_candidates if depth == 1 else None
+            priority_candidates=priority_candidates
         )
         timed_out = False
 
