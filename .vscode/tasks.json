@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "g++ -O2 -std=c++17 engine/board.cpp engine/evaluate.cpp engine/transposition.cpp engine/search.cpp test.cpp -o test_runner.exe; if ($?) { ./test_runner.exe }",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build WASM",
+            "type": "shell",
+            "command": "cd emsdk; ./emsdk_env.ps1; cd ..; em++ -O2 -std=c++17 engine/board.cpp engine/evaluate.cpp engine/transposition.cpp engine/search.cpp main.cpp -s WASM=1 -s EXPORTED_FUNCTIONS='[\"_ResetBoard\",\"_MakeMove\",\"_CheckWin\",\"_IsFull\",\"_GetBoard\",\"_GetHistoryR\",\"_GetHistoryC\",\"_GetHistoryP\",\"_GetHistoryCount\",\"_GetBestMove\"]' -s EXPORTED_RUNTIME_METHODS='[\"HEAP32\"]' -s ALLOW_MEMORY_GROWTH=1 -o web/gomoku.js",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ]
+}
